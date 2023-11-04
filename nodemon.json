@@ -1,0 +1,7 @@
+{
+  "exec": "babel-node src/server.js",
+  "verbose": true,
+  "watch": ["src", ".env", "node_modules"],
+  "ignore": [".git"],
+  "ext": "js,json"
+}
