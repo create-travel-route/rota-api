@@ -5,13 +5,17 @@ import http from 'http';
 
 import 'dotenv/config';
 import 'colors';
-import connectToMongo from './db.js';
+import router from './Router.js';
+import connectToMongo from './Database.js';
+import ErrorHandler from './Middlewares/ErrorHandler.js';
 
 const port = process.env.PORT || 3000;
 
 const app = express();
 app.use(bodyParser.json());
 app.use(cors());
+app.use(router);
+app.use(ErrorHandler);
 
 const server = http.createServer(app);
 
