@@ -8,12 +8,14 @@ import 'colors';
 import router from './Router.js';
 import connectToMongo from './Database.js';
 import ErrorHandler from './Middlewares/ErrorHandler.js';
+import Authentication from './Middlewares/Authentication.js';
 
 const port = process.env.PORT || 3000;
 
 const app = express();
 app.use(bodyParser.json());
 app.use(cors());
+app.use(Authentication);
 app.use(router);
 app.use(ErrorHandler);
 

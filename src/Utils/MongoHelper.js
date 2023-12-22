@@ -67,16 +67,18 @@ export const updateDocument = async (MODEL, where, data, isSoftDeletedDocument =
   return await doc.save();
 };
 
-export const getDocByForeignKey = async (MODEL, value, lookup) => {
-  if (!value) {
-    return null;
+export const getDocByForeignKey = async (MODEL, match, lookup) => {
+  if (!MODEL.findOne) {
+    throw new Error('getDocByForeignKey: Model is not a mongo schema!');
   }
+  if (!match && lookup) {
+    throw new Error('getDocByForeignKey: Match or lookup does not exist!');
+  }
+
   return (
     await MODEL.aggregate([
       {
-        $match: {
-          value
-        }
+        $match: match
       },
       {
         $lookup: lookup

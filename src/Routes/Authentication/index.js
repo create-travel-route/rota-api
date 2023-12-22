@@ -9,26 +9,22 @@ import UserService from '../../Services/User';
 import { makeSha512 } from '../../Utils/Encription';
 import { getDocument } from '../../Utils/MongoHelper';
 
-const registerSchema = {
-  body: Joi.object({
-    firstName: Joi.string().min(2).max(100).required(),
-    lastName: Joi.string().min(2).max(100).required(),
-    email: Joi.string().email().required(),
-    password: Joi.string().min(8).max(30).required(),
-    passwordAgain: Joi.string().min(8).max(30).required(),
-    isHost: Joi.boolean().required()
-  })
-};
+const registerSchema = Joi.object({
+  firstName: Joi.string().min(2).max(100).required(),
+  lastName: Joi.string().min(2).max(100).required(),
+  email: Joi.string().email().required(),
+  password: Joi.string().min(8).max(30).required(),
+  passwordAgain: Joi.string().min(8).max(30).required(),
+  isHost: Joi.boolean().required()
+});
 
-const loginSchema = {
-  body: Joi.object({
-    email: Joi.string().email().required(),
-    password: Joi.string().min(8).max(30).required()
-  })
-};
+const loginSchema = Joi.object({
+  email: Joi.string().email().required(),
+  password: Joi.string().min(8).max(30).required()
+});
 
 const login = async (req, res, next) => {
-  const { error } = loginSchema.body.validate(req.body);
+  const { error } = loginSchema.validate(req.body);
   if (error) {
     return res.status(400).send({
       errors: error.details
@@ -42,10 +38,8 @@ const login = async (req, res, next) => {
     if (user) {
       const passwordHash = makeSha512(password, user.passwordSalt);
       if (passwordHash === user.passwordHash) {
-        const token = await user.createToken(
-          req.headers['x-forwarded-for'] || req.connection.remoteAddress
-        );
-        return res.send({ user, token });
+        const token = await user.createToken();
+        return res.json({ user, token });
       }
     }
 
@@ -56,9 +50,9 @@ const login = async (req, res, next) => {
 };
 
 const register = async (req, res, next) => {
-  const { error } = registerSchema.body.validate(req.body);
+  const { error } = registerSchema.validate(req.body);
   if (error) {
-    return res.status(400).send({
+    return res.status(400).json({
       errors: error.details
     });
   }
@@ -66,7 +60,7 @@ const register = async (req, res, next) => {
   const { firstName, lastName, email, password, passwordAgain, isHost } = req.body;
 
   if (password !== passwordAgain) {
-    return res.status(400).send({
+    return res.status(400).json({
       error: 'Passwords must be same!'
     });
   }
@@ -80,9 +74,7 @@ const register = async (req, res, next) => {
       passwordAgain,
       role: isHost ? Role.Host : Role.Traveler
     });
-    return res.status(201).send({
-      user: user.toJSON()
-    });
+    return res.status(201).json(user);
   } catch (error) {
     let errorMsg = error.toString();
     if (error.keyValue) {
@@ -123,13 +115,13 @@ const me = async (req, res) => {
   const value = req.headers['x-access-token'];
   const token = await getDocument(Token, { value });
 
-  if (!token || token.expiredAt < new Date()) {
+  if (!token || token.isExpired()) {
     return res.status(401).send();
   }
 
-  return res.status(200).send({
+  return res.json({
     user: new User(req.user),
-    token: new Token(token)
+    token
   });
 };
 
@@ -139,8 +131,8 @@ export default [
     inject: (router) => {
       router.post('/register', register);
       router.post('/login', login);
-      router.get('/logout', Authentication, logout);
-      router.get('/me', Authentication, me);
+      router.get('/logout', logout);
+      router.get('/me', me);
     }
   }
 ];

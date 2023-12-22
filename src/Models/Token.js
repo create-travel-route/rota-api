@@ -40,7 +40,7 @@ tokenSchema.methods.toJSON = function () {
 };
 
 tokenSchema.methods.isExpired = function () {
-  return this.expired_at < Date.now();
+  return this.status === TokenStatus.Expired || this.expired_at < Date.now();
 };
 
 tokenSchema.methods.expire = async function () {

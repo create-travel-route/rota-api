@@ -31,7 +31,7 @@ const userSchema = new mongoose.Schema({
   role: {
     type: String,
     enum: Role,
-    default: 'user'
+    default: Role.Traveler
   },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: null },

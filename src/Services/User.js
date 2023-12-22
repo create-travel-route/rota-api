@@ -1,6 +1,7 @@
 import { createSaltHashPassword } from '../Utils/Encription';
 import { User } from '../Models/User';
 import { getDocByForeignKey } from '../Utils/MongoHelper';
+import { Token } from '../Models/Token';
 
 // create user
 const create = async ({ firstName, lastName, email, password, role }) => {
@@ -44,22 +45,38 @@ const findOneById = async (id) => {
 
 // find user by token
 const getUserFromToken = async (value) => {
-  return (await getDocByForeignKey(value))?.user[0];
+  return (
+    await getDocByForeignKey(
+      Token,
+      { value },
+      {
+        from: 'users',
+        localField: 'userId',
+        foreignField: '_id',
+        as: 'user'
+      }
+    )
+  )?.user[0];
 };
 
 // update user
-const update = async ({ firstName, lastName, role, email }, id) => {
-  const user = await findOne(id);
+const update = async ({ firstName, lastName }, id) => {
+  const user = await findOneById(id);
 
-  Object.assign(user, { firstName, lastName, role, email });
+  Object.assign(user, { firstName, lastName });
   return await user.save();
 };
 
 // delete user
 const deleteUser = async (id) => {
-  const userToDelete = await findOne(id);
+  const userToDelete = await findOneById(id);
+
+  if (!userToDelete) {
+    return false;
+  }
 
   userToDelete.deletedAt = new Date();
+  userToDelete.updatedAt = new Date();
 
   userToDelete.save();
 
