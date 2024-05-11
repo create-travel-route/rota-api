@@ -32,7 +32,7 @@ const createProperty = async (req, res, next) => {
       lat,
       budget,
       rating: 0,
-      hostId: req.user.id
+      hostId: req.user._id
     });
     return res.status(201).json({
       property: property.toJSON()
