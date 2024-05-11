@@ -99,6 +99,53 @@ const getPropertiesBetweenTwoLocations = async (req, res, next) => {
   }
 };
 
+const createRoute = async (req, res, next) => {
+  const { lon1, lat1, lon2, lat2, budget } = req.query;
+
+  try {
+    const properties = await PropertyService.getPropertiesByLocation({
+      lon1,
+      lat1,
+      lon2,
+      lat2
+    });
+
+    const newProperties = [
+      {
+        title: 'Başlangıç', // Mekan ismi
+        distance: 0, // Mesafe
+        budget: 0, // Bütçe
+        location: {
+          coordinates: [lon1, lat1]
+        }
+      },
+      ...properties,
+      {
+        title: 'Bitiş', // Mekan ismi
+        distance: 0, // Mesafe
+        budget: 0, // Bütçe
+        location: {
+          coordinates: [lon2, lat2]
+        }
+      }
+    ];
+
+    // Matrisi oluştur
+    const matrix = await PropertyService.createMatrix(newProperties);
+    const { dist, cost, Next } = await PropertyService.floydWarshallWithBudgetConstraint(
+      matrix,
+      budget
+    );
+
+    const path = await PropertyService.createRoute(dist);
+
+    const pathWithProperty = path.map((node) => newProperties[node]);
+    res.json(pathWithProperty);
+  } catch (err) {
+    next(err);
+  }
+};
+
 export default [
   {
     prefix: '/properties',
@@ -106,6 +153,7 @@ export default [
       router.post('', createProperty);
       router.get('', getProperties);
       router.get('/places', getPropertiesBetweenTwoLocations);
+      router.get('/route', createRoute);
       router.get('/:id', getProperty);
       router.delete('/:id', deleteProperty);
     }
