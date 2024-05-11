@@ -208,7 +208,7 @@ async function createRoute(matrix) {
       path.push(nextVertex);
       lastVertex = nextVertex;
     } else {
-      break; // Eğer bir sonraki vertex bulunamazsa döngüyü kır
+      break;
     }
   }
 
