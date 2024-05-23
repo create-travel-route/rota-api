@@ -54,10 +54,24 @@ const findOneById = async (id) => {
 };
 
 // update property
-const update = async ({ title, description, category, address, location }, id) => {
+const update = async ({ title, description, category, address, lng, lat, budget, rating }, id) => {
   const property = await findOneById(id);
 
-  Object.assign(property, { title, description, category, address, location });
+  Object.assign(property, {
+    title,
+    description,
+    category,
+    address,
+    location: {
+      type: 'Point',
+      coordinates: [lng, lat]
+    },
+    budget,
+    rating: 0
+  });
+
+  property.updatedAt = new Date();
+
   return await property.save();
 };
 

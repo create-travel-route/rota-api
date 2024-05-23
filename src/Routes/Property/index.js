@@ -1,6 +1,8 @@
 import PropertyService from '../../Services/Property.js';
 import Joi from '../../Joi.js';
+import HTTPError from '../../Exceptions/HTTPError.js';
 import { isMongoObjectId } from '../../Utils/MongoHelper.js';
+import { Role } from '../../Constants/User.js';
 
 const createPropertySchema = Joi.object({
   title: Joi.string().min(2).max(100).required(),
@@ -60,6 +62,48 @@ const getProperty = async (req, res, next) => {
 
     const property = await PropertyService.findOneById(id);
     res.json(property);
+  } catch (err) {
+    next(err);
+  }
+};
+
+const updateProperty = async (req, res, next) => {
+  const { id } = req.params;
+  if (!isMongoObjectId(id)) {
+    return res.status(400).send();
+  }
+
+  const { error } = createPropertySchema.validate(req.body);
+  if (error) {
+    return res.status(400).send({
+      errors: error.details
+    });
+  }
+
+  const user = req.user;
+
+  if (!user || user.deletedAt) {
+    throw new HTTPError('User not found');
+  }
+
+  try {
+    const property = await PropertyService.findOneById(id);
+    if (!property) {
+      throw new HTTPError('Property not found');
+    }
+
+    if (
+      user.role === Role.Traveler ||
+      user.role === Role.Guest ||
+      (user.role === Role.Host && property.hostId.toString() !== user._id.toString())
+    ) {
+      return res.status(401).send();
+    }
+
+    const updatedProperty = await PropertyService.update({ ...req.body }, id);
+    return res.status(200).json({
+      property: updatedProperty.toJSON()
+    });
   } catch (err) {
     next(err);
   }
@@ -152,6 +196,7 @@ export default [
     inject: (router) => {
       router.post('', createProperty);
       router.get('', getProperties);
+      router.put('/:id', updateProperty);
       router.get('/places', getPropertiesBetweenTwoLocations);
       router.get('/route', createRoute);
       router.get('/:id', getProperty);
