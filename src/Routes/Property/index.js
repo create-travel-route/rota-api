@@ -46,7 +46,9 @@ const createProperty = async (req, res, next) => {
 
 const getProperties = async (req, res, next) => {
   try {
-    const properties = await PropertyService.find();
+    const properties = await PropertyService.find({
+      deletedAt: null
+    });
     res.json(properties);
   } catch (err) {
     next(err);

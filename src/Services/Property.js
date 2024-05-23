@@ -31,10 +31,7 @@ const create = async ({
 
 // all properties
 const find = async (where) => {
-  const properties = await Property.find({
-    ...where,
-    deletedAt: null
-  }).exec();
+  const properties = await Property.find(where).exec();
 
   return properties;
 };
