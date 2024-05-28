@@ -67,11 +67,26 @@ const update = async ({ title, description, category, address, lng, lat, budget,
       coordinates: [lng, lat]
     },
     budget,
-    rating: 0
+    rating: property.rating
   });
 
   property.updatedAt = new Date();
 
+  return await property.save();
+};
+
+//add reviews
+const addReview = async ({ user, rating, comment }, id) => {
+  const property = await findOneById(id);
+  const totalRating = (property.rating * property.reviews.length) + new Number(rating);
+  property.reviews.push({
+    user,
+    rating,
+    comment,
+    date: new Date()
+  });
+  property.rating = totalRating / property.reviews.length;
+  property.updatedAt = new Date();
   return await property.save();
 };
 
@@ -235,6 +250,7 @@ const PropertyService = {
   findOne,
   findOneById,
   update,
+  addReview,
   deleteProperty,
   getPropertiesByLocation,
   createMatrix,

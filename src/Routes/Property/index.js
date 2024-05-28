@@ -14,6 +14,11 @@ const createPropertySchema = Joi.object({
   budget: Joi.number().required()
 });
 
+const reviewSchema = Joi.object({
+  rating: Joi.number().min(1).max(5).required(),
+  comment: Joi.string().min(2).max(500).required()
+});
+
 const createProperty = async (req, res, next) => {
   const { error } = createPropertySchema.validate(req.body);
   if (error) {
@@ -192,6 +197,43 @@ const createRoute = async (req, res, next) => {
   }
 };
 
+const reviewProperty = async (req, res, next) => {
+  const { id } = req.params;
+  const { rating, comment } = req.body;
+
+  if (!isMongoObjectId(id)) {
+    return res.status(400).send();
+  }
+  if (rating < 1 || rating > 5 || comment === null) {
+    return res.status(400).send();
+  }
+
+  const { error } = reviewSchema.validate(req.body);
+  if (error) {
+    return res.status(400).send({
+      errors: error.details
+    });
+  }
+
+  const user = req.user;
+
+  if (!user || user.deletedAt) {
+    throw new HTTPError('User not found');
+  }
+
+  try {
+    const property = await PropertyService.findOneById(id);
+    if (!property) {
+      throw new HTTPError('Property not found');
+    }
+
+    await PropertyService.addReview({ user: user._id, rating, comment }, id);
+    return res.status(200).send();
+  } catch (err) {
+    next(err);
+  }
+};
+
 export default [
   {
     prefix: '/properties',
@@ -203,6 +245,7 @@ export default [
       router.get('/route', createRoute);
       router.get('/:id', getProperty);
       router.delete('/:id', deleteProperty);
+      router.post('/:id/review', reviewProperty);
     }
   }
 ];

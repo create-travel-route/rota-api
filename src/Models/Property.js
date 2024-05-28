@@ -1,6 +1,13 @@
 import mongoose, { Types } from 'mongoose';
 import { Category } from '../Constants/Property';
 
+const reviewSchema = new mongoose.Schema({
+  user: { type: Types.ObjectId, ref: 'user', required: true },
+  rating: { type: Number, required: true, min: 1, max: 5 },
+  comment: { type: String, required: true },
+  date: { type: Date, default: Date.now }
+});
+
 const propertySchema = new mongoose.Schema({
   title: {
     type: String,
@@ -47,6 +54,10 @@ const propertySchema = new mongoose.Schema({
     ref: 'user',
     default: null,
     sparse: true
+  },
+  reviews: {
+    type: [reviewSchema],
+    default: null
   },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: null },

@@ -14,6 +14,10 @@ export const PATHS = [
   {
     path: '/authentication/register',
     method: 'POST'
+  },
+  {
+    path: '/',
+    method: 'GET'
   }
   //   {
   //     path: `/pharmacies/${IGNORE}/is-exist`,
