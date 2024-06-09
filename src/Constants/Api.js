@@ -18,6 +18,10 @@ export const PATHS = [
   {
     path: '/',
     method: 'GET'
+  },
+  {
+    path: '/properties/route',
+    method: 'GET'
   }
   //   {
   //     path: `/pharmacies/${IGNORE}/is-exist`,

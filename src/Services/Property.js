@@ -78,7 +78,7 @@ const update = async ({ title, description, category, address, lng, lat, budget,
 //add reviews
 const addReview = async ({ user, rating, comment }, id) => {
   const property = await findOneById(id);
-  const totalRating = (property.rating * property.reviews.length) + new Number(rating);
+  const totalRating = property.rating * property.reviews.length + new Number(rating);
   property.reviews.push({
     user,
     rating,
@@ -106,16 +106,19 @@ const deleteProperty = async (id) => {
   return 'OK';
 };
 
-const getPropertiesByLocation = async ({ lon1, lat1, lon2, lat2 }) => {
+const getPropertiesByLocation = async ({ lon1, lat1, lon2, lat2, ...otherFilters }) => {
+  const centerLat = (Number(lat1) + Number(lat2)) / 2;
+  const centerLon = (Number(lon1) + Number(lon2)) / 2;
+  const radiusKm = calculateDistance([lon1, lat1], [lon2, lat2]) / 2;
+  const radiusMiles = radiusKm * 0.621371; // Kilometreyi mile çevirin
+
   const properties = await find({
     location: {
       $geoWithin: {
-        $box: [
-          [lon1, lat1],
-          [lon2, lat2]
-        ]
+        $centerSphere: [[centerLon, centerLat], radiusMiles / 3963.2] // Yarıçapı mil cinsinden ve sonra radyan olarak belirtin
       }
-    }
+    },
+    ...otherFilters
   });
 
   return properties;
@@ -167,12 +170,12 @@ async function createMatrix(properties) {
   return matrix;
 }
 
-async function floydWarshallWithBudgetConstraint(matrix, budgetLimit) {
+async function floydWarshallWithBudgetConstraint(matrix) {
   const size = matrix.length;
 
   const dist = Array.from({ length: size }, () => Array(size).fill(Infinity));
   const Next = Array.from({ length: size }, () => Array(size).fill(-1));
-  const cost = Array.from({ length: size }, () => Array(size).fill(0));
+  const cost = Array.from({ length: size }, () => Array(size).fill(Infinity)); // Maliyetleri sonsuz olarak başlat
 
   // Başlangıç mesafelerini, bütçeleri ve maliyetleri ayarla
   for (let i = 0; i < size; i++) {
@@ -180,7 +183,7 @@ async function floydWarshallWithBudgetConstraint(matrix, budgetLimit) {
       if (i === j) {
         dist[i][j] = 0; // Kendi kendine mesafe sıfır olmalı
         cost[i][j] = 0; // Kendi kendine maliyet sıfır olmalı
-      } else if (matrix[i][j].budget <= budgetLimit) {
+      } else {
         dist[i][j] = matrix[i][j].distance;
         Next[i][j] = j;
         cost[i][j] = matrix[i][j].budget;
@@ -188,12 +191,14 @@ async function floydWarshallWithBudgetConstraint(matrix, budgetLimit) {
     }
   }
 
+  // Floyd-Warshall algoritmasını uygula
   for (let k = 0; k < size; k++) {
     for (let i = 0; i < size; i++) {
       for (let j = 0; j < size; j++) {
         if (dist[i][j] > dist[i][k] + dist[k][j]) {
           dist[i][j] = dist[i][k] + dist[k][j];
           Next[i][j] = Next[i][k];
+          cost[i][j] = cost[i][k] + cost[k][j]; // Toplam maliyeti güncelle
         }
       }
     }
@@ -202,37 +207,44 @@ async function floydWarshallWithBudgetConstraint(matrix, budgetLimit) {
   return { dist, cost, Next };
 }
 
-async function createRoute(matrix) {
+async function createRoute(matrix, budgetMatrix, budgetLimit) {
   const numVertices = matrix.length;
   let path = [0]; // Rota başlangıcı olarak 0. elemanı ekliyoruz.
   let visited = new Array(numVertices).fill(false); // Ziyaret edilen düğümleri takip etmek için
   visited[0] = true; // Başlangıç düğümü ziyaret edildi olarak işaretlenir
+  let currentBudget = 0; // Başlangıç bütçesi sıfır
 
   // Matrisin her satırındaki en küçük elemanı bulup rotaya ekleyen fonksiyon
-  function findNextVertex(matrix, lastVertex) {
+  function findNextVertex(matrix, budgetMatrix, lastVertex, currentBudget, budgetLimit) {
     let min = Infinity;
     let minIndex = -1;
 
     for (let i = 0; i < numVertices; i++) {
-      if (!visited[i] && matrix[lastVertex][i] < min) {
+      if (
+        !visited[i] &&
+        matrix[lastVertex][i] < min &&
+        currentBudget + budgetMatrix[lastVertex][i] <= budgetLimit
+      ) {
         min = matrix[lastVertex][i];
         minIndex = i;
       }
     }
 
-    // Seçilen elemanları null yapma ve ziyaret edilen düğümü işaretleme
-    for (let i = 0; i < numVertices; i++) {
-      matrix[lastVertex][i] = null; // Satırı null yap
+    if (minIndex !== -1) {
+      currentBudget += budgetMatrix[lastVertex][minIndex];
+      visited[minIndex] = true; // Düğüm ziyaret edildi olarak işaretlenir
     }
-    visited[minIndex] = true; // Düğüm ziyaret edildi olarak işaretlenir
 
-    return minIndex;
+    return { minIndex, currentBudget };
   }
 
   // Rota oluşturma
   let lastVertex = 0;
   while (path.length < numVertices) {
-    let nextVertex = findNextVertex(matrix, lastVertex);
+    let result = findNextVertex(matrix, budgetMatrix, lastVertex, currentBudget, budgetLimit);
+    let nextVertex = result.minIndex;
+    currentBudget = result.currentBudget;
+
     if (nextVertex !== -1) {
       path.push(nextVertex);
       lastVertex = nextVertex;

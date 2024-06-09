@@ -3,5 +3,6 @@ export const Category = {
   Historical: 'Historical',
   Entertainment: 'Entertainment',
   Sport: 'Sport',
-  Shopping: 'Shopping'
+  Shopping: 'Shopping',
+  Nature: 'Nature'
 };

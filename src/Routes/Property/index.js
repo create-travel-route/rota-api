@@ -52,7 +52,8 @@ const createProperty = async (req, res, next) => {
 const getProperties = async (req, res, next) => {
   try {
     const properties = await PropertyService.find({
-      deletedAt: null
+      deletedAt: null,
+      ...req.query
     });
     res.json(properties);
   } catch (err) {
@@ -151,14 +152,44 @@ const getPropertiesBetweenTwoLocations = async (req, res, next) => {
 };
 
 const createRoute = async (req, res, next) => {
-  const { lon1, lat1, lon2, lat2, budget } = req.query;
+  const { lon1, lat1, lon2, lat2, budget = Infinity, review, ...otherFilters } = req.query;
+
+  let minReviewCount = 0;
+  let maxReviewCount = Infinity;
+
+  switch (parseInt(review, 10)) {
+    case 0:
+      minReviewCount = 0;
+      maxReviewCount = 4;
+      break;
+    case 1:
+      minReviewCount = 5;
+      maxReviewCount = 10;
+      break;
+    case 2:
+      minReviewCount = 10;
+      break;
+    case 3:
+      minReviewCount = 20;
+      break;
+    default:
+      break;
+  }
 
   try {
     const properties = await PropertyService.getPropertiesByLocation({
       lon1,
       lat1,
       lon2,
-      lat2
+      lat2,
+      deletedAt: null,
+      $expr: {
+        $and: [
+          { $gte: [{ $size: '$reviews' }, minReviewCount] },
+          { $lte: [{ $size: '$reviews' }, maxReviewCount] }
+        ]
+      },
+      ...otherFilters
     });
 
     const newProperties = [
@@ -183,13 +214,9 @@ const createRoute = async (req, res, next) => {
 
     // Matrisi oluştur
     const matrix = await PropertyService.createMatrix(newProperties);
-    const { dist, cost, Next } = await PropertyService.floydWarshallWithBudgetConstraint(
-      matrix,
-      budget
-    );
+    const { dist, cost } = await PropertyService.floydWarshallWithBudgetConstraint(matrix);
 
-    const path = await PropertyService.createRoute(dist);
-
+    const path = await PropertyService.createRoute(dist, cost, budget);
     const pathWithProperty = path.map((node) => newProperties[node]);
     res.json(pathWithProperty);
   } catch (err) {
